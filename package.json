@@ -1,0 +1,25 @@
+{
+  "name": "cypress-e2e-parallel-test-action",
+  "version": "1.0.0",
+  "description": "Github Action to test Cypress end to end tests in parallel",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/outsideopen/cypress-e2e-parallel-test-action.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/outsideopen/cypress-e2e-parallel-test-action/issues"
+  },
+  "homepage": "https://github.com/outsideopen/cypress-e2e-parallel-test-action#readme",
+  "dependencies": {
+    "@actions/core": "^1.2.7",
+    "@actions/github": "^4.0.0",
+    "glob": "^7.1.6"
+  }
+}

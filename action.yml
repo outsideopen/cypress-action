@@ -1,0 +1,22 @@
+name: 'Cypress e2e parallel test action'
+inputs:
+  group:
+    description: 'The current test group.'
+    default: 1
+  groups:
+    description: 'The total number of test groups.'
+    default: 1
+  test-pattern:
+    description: 'A path to match test files.'
+    default: '/github/workspace/tests/e2e/specs/*.spec.js'
+  single-pattern:
+    description: 'An array of paths to tests that each should be run as their own group. Useful for tests that have a long run time.'
+    defaults: []
+
+outputs:
+  tests:
+    description: 'The tests to be run for this group'
+
+runs:
+  using: 'node12'
+  image: 'index.js'
