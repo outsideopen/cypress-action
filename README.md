@@ -47,7 +47,7 @@ jobs:
     steps:
       - name: Calculate parallel test groups
         id: parallel
-        uses: outsideopen/cypress-e2e-parallel-test-action
+        uses: outsideopen/cypress-e2e-parallel-test-action@main
         with:
           group: ${{ matrix.group }}
           groups: ${{ matrix.groups }}
