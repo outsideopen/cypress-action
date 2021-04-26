@@ -55,5 +55,14 @@ jobs:
           single-pattern: '/path/to/tests/runOnItsOwn.spec.js'
 
       - name: Run tests in parallel
-        run: yarn cypress run --spec ${{ steps.parallel.tests }}
+        run: yarn cypress run --spec ${{ steps.parallel.outputs.tests }}
 ```
+
+## Development
+
+After making changes to the code, you need to build the dependencies, and commit the file `dist/index.js`
+
+```bash
+npm run build
+```
+
