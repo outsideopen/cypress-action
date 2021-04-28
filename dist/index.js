@@ -1,7 +1,7 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 351:
+/***/ 241:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -109,7 +109,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-const command_1 = __nccwpck_require__(351);
+const command_1 = __nccwpck_require__(241);
 const file_command_1 = __nccwpck_require__(717);
 const utils_1 = __nccwpck_require__(278);
 const os = __importStar(__nccwpck_require__(87));
@@ -1674,6 +1674,80 @@ var isArray = Array.isArray || function (xs) {
 
 /***/ }),
 
+/***/ 165:
+/***/ ((module) => {
+
+"use strict";
+/*
+ * Knapsack
+ * For the full copyright and license information, please view the LICENSE.txt file.
+ */
+
+/* jslint node: true */
+
+
+// Init the module
+module.exports = function() {
+
+  // Resolves the given problem
+  var resolve = function resolve(capacity, items) {
+
+    var result  = [],
+        leftCap = capacity,
+        itemsFiltered;
+
+    if(typeof capacity !== 'number')
+      return false;
+
+    if(!items || !(items instanceof Array))
+      return false;
+
+    // Resolve
+    var item,
+        itemKey,
+        itemVal,
+        itemObj;
+
+    itemsFiltered = items.filter(function(value) {
+      itemVal = (typeof value === 'object') ? value[Object.keys(value)[0]] : null;
+      if(!isNaN(itemVal) && itemVal > 0 && itemVal <= capacity) {
+        return true;
+      } else {
+        return false;
+      }
+    });
+    itemsFiltered.sort(function(a, b) { return a[Object.keys(a)[0]] < b[Object.keys(b)[0]]; });
+
+    for(item in itemsFiltered) {
+      if(itemsFiltered.hasOwnProperty(item)) {
+        itemKey = Object.keys(itemsFiltered[item])[0];
+        itemVal = itemsFiltered[item][itemKey];
+
+        if((leftCap-itemVal) >= 0) {
+          leftCap = leftCap-itemVal;
+
+          itemObj = Object.create(null);
+          itemObj[itemKey] = itemVal;
+          result.push(itemObj);
+
+          delete itemsFiltered[item];
+
+          if(leftCap <= 0) break;
+        }
+      }
+    }
+
+    return result;
+  };
+
+  // Return
+  return {
+    resolve: resolve
+  };
+}();
+
+/***/ }),
+
 /***/ 973:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -2604,6 +2678,49 @@ function regExpEscape (s) {
 
 /***/ }),
 
+/***/ 608:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const knapsack = __nccwpck_require__(165)
+
+module.exports = { executionPlan }
+
+function executionPlan(weightedFiles, nrOfGroups) {
+  if (!weightedFiles || Object.keys(weightedFiles).length == 0) {
+    return []
+  }
+
+  let executionPlan = []
+
+  let weights = Object.values(weightedFiles)
+
+  let totalWeight = weights.reduce((accumulator, el) => accumulator + el)
+
+  const weightPerGroup = Math.ceil(totalWeight / nrOfGroups)
+
+  weightedArray = []
+  for (const key in weightedFiles) {
+    let weightedObject = {}
+    weightedObject[key] = weightedFiles[key]
+    weightedArray.push(weightedObject)
+  }
+
+  for (let i = 0; i < nrOfGroups; i++) {
+    let nextGroup = knapsack.resolve(weightPerGroup, weightedArray)
+    const keys = nextGroup.map((el) => Object.keys(el)[0])
+    executionPlan.push(keys)
+    keys.forEach((key) => {
+      weightedArray = weightedArray.filter(
+        (filter) => Object.keys(filter)[0] != key
+      )
+    })
+  }
+  return executionPlan
+}
+
+
+/***/ }),
+
 /***/ 357:
 /***/ ((module) => {
 
@@ -2678,56 +2795,51 @@ var __webpack_exports__ = {};
 const core = __nccwpck_require__(186)
 const glob = __nccwpck_require__(90)
 
-const currentGroup = core.getInput("group") - 1
-const groups = core.getInput("groups")
-const testPattern = core.getInput("test-pattern")
-const singlePattern = core.getInput("single-pattern")
+const fs = __nccwpck_require__(747)
+
+const { executionPlan } = __nccwpck_require__(608)
+
+const filename = ".cypress-weights.json"
+
+async function weights(files) {
+  if (fs.existsSync(filename)) {
+    core.info(`Weights file found at ${filename}`)
+    weightsFile = fs.readFileSync(filename, "utf8")
+    fileWeights = JSON.parse(weightsFile)
+  } else {
+    core.info(`Weights file not found at ${filename}. Using default weights.`)
+    let returnObject = {}
+    fileWeights = files.forEach((el) => {
+      returnObject[el] = 1
+    })
+  }
+
+  core.info(JSON.stringify(fileWeights, null, 4))
+  return fileWeights
+}
 
 async function main() {
-  core.info(`testPattern: ${testPattern}`)
+  const group = core.getInput("group")
+  const groups = core.getInput("groups")
+  const spec = core.getInput("spec")
 
-  const globber = await glob.create(testPattern)
-  const generalFiles = [...(await globber.glob())]
+  const globber = await glob.create(spec)
+  const files = [...(await globber.glob())]
 
-  const singleGlobber = await glob.create(singlePattern)
-  const singleFiles = [...(await singleGlobber.glob())]
+  const weightedFiles = await weights(files)
 
-  core.info(`generalFiles: ${generalFiles}`)
-  core.info(`generalFiles: ${generalFiles.length}`)
-  core.info(`singleFiles: ${singleFiles}`)
-  core.info(`singleFiles: ${singleFiles.length}`)
+  const plan = executionPlan(weightedFiles, groups)
 
-  for (let i = 0; i < singleFiles.length; i++) {
-    const index = generalFiles.indexOf(singleFiles[i])
-    if (index !== -1) generalFiles.splice(index, 1)
-  }
-
-  const filesInGroup = Math.ceil(
-    generalFiles.length / (groups - singleFiles.length)
-  )
-  const filesForTest = []
-
-  if (currentGroup < singleFiles.length) {
-    filesForTest.push(singleFiles[currentGroup])
-  } else {
-    for (let i = 0; i < filesInGroup; i++) {
-      if (
-        generalFiles[(currentGroup - singleFiles.length) * filesInGroup + i]
-      ) {
-        filesForTest.push(
-          generalFiles[(currentGroup - singleFiles.length) * filesInGroup + i]
-        )
-      }
-    }
-  }
-
-  core.info(`filesForTest: ${filesForTest}`)
-  return filesForTest.join(',')
+  return plan[group - 1].join(",")
 }
-main().then((res) => {
-  core.info(`main ${res}`)
-  core.setOutput("tests", res)
-})
+
+main()
+  .then((res) => {
+    core.setOutput("tests", res)
+  })
+  .catch((err) => {
+    core.setFailed(`Action failed with error ${err}`)
+  })
 
 })();
 
