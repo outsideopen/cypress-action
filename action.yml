@@ -6,12 +6,9 @@ inputs:
   groups:
     description: 'The total number of test groups.'
     default: 1
-  test-pattern:
-    description: 'A path to match test files.'
-    default: '/github/workspace/tests/e2e/specs/*.spec.js'
-  single-pattern:
-    description: 'An array of paths to tests that each should be run as their own group. Useful for tests that have a long run time.'
-    default: ''
+  spec:
+    description: 'A glob that matches the test files.'
+    default: 'cypress/integration/*spec.js'
 
 outputs:
   tests:
