@@ -57,6 +57,7 @@ async function main() {
   const weightedFiles = await weights(files)
 
   const plan = executionPlan(weightedFiles, groups)
+  core.info(JSON.stringify(plan, null, 4))
 
   return plan[group - 1].join(",")
 }
