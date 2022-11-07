@@ -15,5 +15,5 @@ outputs:
     description: 'The tests to be run for this group'
 
 runs:
-  using: 'node12'
+  using: 'node16'
   main: 'dist/index.js'
