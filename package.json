@@ -22,7 +22,7 @@
     "@actions/core": "^1.10.0",
     "@actions/glob": "^0.1.1",
     "@vercel/ncc": "^0.28.3",
-    "glob": "^7.1.6",
+    "glob": "^8.0.0",
     "hash.js": "^1.1.7",
     "knapsack-js": "^1.0.2"
   },
