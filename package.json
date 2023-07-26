@@ -27,6 +27,6 @@
     "knapsack-js": "^1.0.2"
   },
   "devDependencies": {
-    "jest": "^26.6.3"
+    "jest": "^29.0.0"
   }
 }
