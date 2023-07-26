@@ -58,7 +58,7 @@ async function main() {
   core.info(`files: ${files}`)
   const weightedFiles = await weights(files)
   
-  core.info(`weighted files: ${JSON.stringify(fileWeights, null)}`)
+  core.info(`weighted files: ${JSON.stringify(weightedFiles, null)}`)
 
   const plan = executionPlan(weightedFiles, groups)
   core.info(`execution plan: ${JSON.stringify(plan, null)}`)
