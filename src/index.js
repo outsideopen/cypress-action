@@ -8,6 +8,7 @@ const { executionPlan } = require("./utils")
 const filename = ".cypress-weights.json"
 
 async function weights(files) {
+  let fileWeights = {}
   if (fs.existsSync(filename)) {
     core.info(`Weights file found at ${filename}`)
     weightsFile = fs.readFileSync(filename, "utf8")
@@ -15,7 +16,7 @@ async function weights(files) {
 
     let fileWeightsKeys = Object.keys(fileWeights)
     let difference = files.filter((x) => !fileWeightsKeys.includes(x))
-    let returnObject = {}
+
     difference.forEach((el) => {
       fileWeights[el] = 1
     })
@@ -36,13 +37,14 @@ async function weights(files) {
     }
   } else {
     core.info(`Weights file not found at ${filename}. Using default weights.`)
-    let returnObject = {}
-    fileWeights = files.forEach((el) => {
-      returnObject[el] = 1
-    })
+
+    for (const file of files) {
+      core.info(`file: ${file}`)
+      fileWeights[file] = 1
+    }
   }
 
-  core.info(JSON.stringify(fileWeights, null, 4))
+
   return fileWeights
 }
 
@@ -53,11 +55,13 @@ async function main() {
 
   const globber = await glob.create(spec)
   const files = [...(await globber.glob())]
-
+  core.info(`files: ${files}`)
   const weightedFiles = await weights(files)
+  
+  core.info(`weighted files: ${JSON.stringify(fileWeights, null)}`)
 
   const plan = executionPlan(weightedFiles, groups)
-  core.info(JSON.stringify(plan, null, 4))
+  core.info(`execution plan: ${JSON.stringify(plan, null)}`)
 
   return plan[group - 1].join(",")
 }
