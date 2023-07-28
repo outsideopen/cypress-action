@@ -1,0 +1,15 @@
+name: 'Cypress Paralel Tests - Update weights'
+inputs:
+  tests-path:
+    description: 'Path to your Cypress tests'
+    default: 'cypress/e2e'
+  results-path:
+    description: 'Path to the Cypress test result files'
+    default: 'cypress/results'
+
+outputs:
+  weights:
+    description: 'The resulting weights'
+runs:
+  using: 'node16'
+  main: 'dist/index.js'
