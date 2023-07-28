@@ -1,36 +1,57 @@
 # Cypress e2e parallel test action
 
-A poor man's action for parallel testing with Cypress.
+A poor man's Cypress parallel testing action.
 
-## Inputs
+## Introduction
 
-### `group`
+This project consists of two sub-actions:
 
-The number for the current group of tests
+- `assign-tests`
+- `update-weights`
 
-**default** 1
+`assign-tests`, assign tests to be run on a specific runner. It uses weights to optimize the assignments.
 
-### `groups`
+`update-weights`, parses the test results and updates the weights.
 
-The total number of testing groups
+All that is needed to use `assign-tests`, is a file `.cypress-weights.json` in the root of your project. Any tests not defined in the weight file, is assigned a weight of `1`.
 
-**default** 1
+Manually keeping the weights up to date can be a pain, if tests are constantly being added and modified. `update-weights` solves this problem, by parsing the test results, and adding an optimized `.cypress-weights.json` to the cache. This file will be used on the next test run.
 
-### `spec`
+## Dependencies
 
-A glob that matches the test files.
+In order for `update-weights` to parse the test results, you need [mochawesome](https://github.com/adamgruber/mochawesome) reporter installed, and configured to generate `json` output.
 
-**default** 'cypress/integration/*spec.js'
+```bash
+npm install --save-dev mochawesome
+```
 
-## Outputs
+```js
+// You can configure it in cypress.config.js
 
-### `spec`
+module.exports = defineConfig({
+  reporter: 'mochawesome',
+  reporterOptions: {
+    reportDir: 'cypress/results',
+    overwrite: false,
+    html: false,
+    json: true,
+  },
+```
 
-The tests that should be run in the current group
+```bash
+# or use command line options
+cypress run --reporter mochawesome --reporter-options "reportDir=cypress/results,overwrite=false,html=false,json=true"
+```
 
-## Example usage
+
+## Example
 
 ```yaml
+# .github/workflows/test.yml
+
+name: test
+on:
+  workflow_dispatch:
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -40,47 +61,43 @@ jobs:
         groups: [5]
 
     steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+      - run: npm install
+
       - name: Calculate parallel test groups
         id: parallel
-        uses: outsideopen/cypress-e2e-parallel-test-action@main
+        uses: outsideopen/cypress-action/assign-tests@main
         with:
-          group: ${{ matrix.group }}
-          groups: ${{ matrix.groups }}
-          spec: '/path/to/tests/*.spec.js'
+          group: ${{ matrix.group }}       # The current group        (default: 1)
+          groups: ${{ matrix.groups }}     # Total number of groups   (default: 1)
+          tests-path: '/path/to/tests'     # Path to cypress tests    (default: cypress/e2e)
+          glob: '*.spec.js'                # Glob to match test files (default: **/*.cy.js)
 
-      - name: Run tests in parallel
-        run: yarn cypress run --spec ${{ steps.parallel.outputs.spec }}
+      - name: Run tests
+        run: yarn cypress run --spec ${{ steps.parallel.outputs.spec }} --reporter mochawesome --reporter-options "reportDir=cypress/results,overwrite=false,html=false,json=true"
+
+      - uses: outsideopen/cypress-action/update-weights@main
+        with:
+         tests-path: '/path/to/tests'          # Path to cypress tests. Same as above 
+                                               # (default: cypress/e2e)
+         results-path: '/path/to/test/results' # Path to mochawsome json results (as specified in reportsDir above)
+                                               # (default: cypress/results)
 ```
 
-## Weights file
+## Weights file explained
 
-By default, this action will evenly distribute tests across containers. This works well if your tests take a similar amount of time to execute. If, however, you have some longer running tests, you may want to assign weights to your tests, in order to optimize the container assignment.
+The weights file is a simple JSON file, with the test file path, as the key, and the weight as the value. The key should be the full path, as it is in the Github Action Workspace.
 
-**NOTE:** In future releases, we will automate this feature, but for now you have to manually assign weights. A good weighting strategy, is to use the execution times from a previous run.
-
-Create a file named `.cypress-weights.json` in the root of your project. This file consists of an object where the keys are the file names, and the values are the weights.
-
-The file names should be the full path, as on the Github Action Workspace.
+If you are not interested in dynamically updating test weights, it is pretty straight forward to manually create this file, and commit it to the root of your project.
 
 **Example:**
 
 ```
   {
-    "/home/runner/work/actions-test-repo/actions-test-repo/tests/test1.spec.js": 4,
-    "/home/runner/work/actions-test-repo/actions-test-repo/tests/test2.spec.js": 2,
-    "/home/runner/work/actions-test-repo/actions-test-repo/tests/test3.spec.js": 3
+    "/home/runner/work/actions-test-repo/actions-test-repo/cypress/e2e/test_suite/test1.spec.js": 4,
+    "/home/runner/work/actions-test-repo/actions-test-repo/cypress/e2e/test_suite/test2.spec.js": 2,
+    "/home/runner/work/actions-test-repo/actions-test-repo/cypress/e2e/test_suite/test3.spec.js": 3
   }
 ```
-
-
-
-
-
-## Development
-
-After making changes to the code, you need to build the dependencies, and commit the file `dist/index.js`
-
-```bash
-npm run build
-```
-
