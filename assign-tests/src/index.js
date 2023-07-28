@@ -1,17 +1,21 @@
+const cache = require("@actions/cache")
 const core = require("@actions/core")
 const glob = require("@actions/glob")
+
+const { hashElement } = require("folder-hash")
 
 const fs = require("fs")
 
 const { executionPlan } = require("./utils")
 
-const filename = ".cypress-weights.json"
+const CACHE_KEY = "cypress-weights"
+const WEIGHT_FILE = ".cypress-weights.json"
 
 async function weights(files) {
   let fileWeights = {}
-  if (fs.existsSync(filename)) {
-    core.info(`Weights file found at ${filename}`)
-    weightsFile = fs.readFileSync(filename, "utf8")
+  if (fs.existsSync(WEIGHT_FILE)) {
+    core.info(`Weights file found at ${WEIGHT_FILE}`)
+    const weightsFile = fs.readFileSync(WEIGHT_FILE, "utf8")
     fileWeights = JSON.parse(weightsFile)
 
     let fileWeightsKeys = Object.keys(fileWeights)
@@ -32,11 +36,16 @@ async function weights(files) {
     })
     if (difference.length > 0) {
       core.warning(
-        `The following files are not matched by the spec glob, but have weights assigned: ${difference}`
+        `The following files are not matched by the glob, but have weights assigned: ${difference}`
       )
     }
+
+    let totalWeight = Object.values(fileWeights).reduce((a, c) => a + c, 0)
+    core.info(`Weight assigned to this runner: ${totalWeight}`)
   } else {
-    core.info(`Weights file not found at ${filename}. Using default weights.`)
+    core.info(
+      `Weights file not found at ${WEIGHT_FILE}. Using default weights.`
+    )
 
     for (const file of files) {
       core.info(`file: ${file}`)
@@ -44,26 +53,35 @@ async function weights(files) {
     }
   }
 
-
   return fileWeights
+}
+
+async function restoreCache(paths, cacheKey) {
+  core.info(`Reading cache from ${cacheKey}`)
+  await cache.restoreCache(paths, cacheKey)
 }
 
 async function main() {
   const group = core.getInput("group")
   const groups = core.getInput("groups")
-  const spec = core.getInput("spec")
+  const testsPath = core.getInput("tests-path")
+  const pattern = core.getInput("glob")
+  const hash = (await hashElement(testsPath)).hash
 
-  const globber = await glob.create(spec)
+  const globber = await glob.create(`${testsPath}/${pattern}`)
   const files = [...(await globber.glob())]
-  core.info(`files: ${files}`)
+  core.debug(`files: ${files}`)
+
+  await restoreCache([WEIGHT_FILE], `${CACHE_KEY}-${hash}`)
+
   const weightedFiles = await weights(files)
-  
-  core.info(`weighted files: ${JSON.stringify(weightedFiles, null)}`)
+
+  core.debug(`weighted files: ${JSON.stringify(weightedFiles, null)}`)
 
   const plan = executionPlan(weightedFiles, groups)
-  core.info(`execution plan: ${JSON.stringify(plan, null)}`)
+  core.debug(`execution plan: ${JSON.stringify(plan, null)}`)
 
-  return plan[group - 1].join(",")
+  return plan && plan.length >= group ? plan[group - 1].join(",") : ""
 }
 
 main()

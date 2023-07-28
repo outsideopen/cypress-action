@@ -1,4 +1,4 @@
-name: 'Cypress e2e parallel test action'
+name: 'Cypress Parallel Tests - Assign Tests'
 inputs:
   group:
     description: 'The current test group.'
@@ -6,9 +6,12 @@ inputs:
   groups:
     description: 'The total number of test groups.'
     default: 1
-  spec:
-    description: 'A glob that matches the test files.'
-    default: 'cypress/integration/*spec.js'
+  tests-path:
+    description: 'Path to your Cypress tests'
+    default: 'cypress/e2e'
+  glob:
+    description: 'A glob that matches the test files, relative to tests-path'
+    default: '**/*.cy.js'
 
 outputs:
   tests:
