@@ -62127,7 +62127,7 @@ const CACHE_KEY = "cypress-weights"
 const WEIGHT_FILE = ".cypress-weights.json"
 
 async function getFiles(path) {
-  const globber = await glob.create(`${path}/**.json`)
+  const globber = await glob.create(`${path}/**/*.json`)
   return [...(await globber.glob())]
 }
 
