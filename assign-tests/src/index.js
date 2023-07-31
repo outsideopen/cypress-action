@@ -56,9 +56,9 @@ async function weights(files) {
   return fileWeights
 }
 
-async function restoreCache(paths, cacheKey) {
+async function restoreCache(paths, cacheKey, restoreKeys) {
   core.info(`Reading cache from ${cacheKey}`)
-  await cache.restoreCache(paths, cacheKey)
+  await cache.restoreCache(paths, cacheKey, restoreKeys)
 }
 
 async function main() {
@@ -72,7 +72,7 @@ async function main() {
   const files = [...(await globber.glob())]
   core.debug(`files: ${files}`)
 
-  await restoreCache([WEIGHT_FILE], `${CACHE_KEY}-${hash}`)
+  await restoreCache([WEIGHT_FILE], `${CACHE_KEY}-${hash}`, [`${CACHE_KEY}-`])
 
   const weightedFiles = await weights(files)
 
