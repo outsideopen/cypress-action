@@ -1,6 +1,7 @@
+const core = require("@actions/core")
 const knapsack = require("knapsack-js")
 
-module.exports = { executionPlan }
+module.exports = { executionPlan, optimizeWeights }
 
 function remainingWeight(weightedArray) {
   let weights = weightedArray.map((x) => Object.values(x)[0])
@@ -8,14 +9,14 @@ function remainingWeight(weightedArray) {
   return weight
 }
 
-function executionPlan(weightedFiles, nrOfGroups) {
+function optimizeWeights(weightedFiles, nrOfGroups) {
   if (!weightedFiles || Object.keys(weightedFiles).length == 0) {
     return []
   }
+  
+  let returnArray = []
+  let weightedArray = []
 
-  let executionPlan = []
-
-  weightedArray = []
   for (const key in weightedFiles) {
     let weightedObject = {}
     weightedObject[key] = weightedFiles[key]
@@ -28,13 +29,22 @@ function executionPlan(weightedFiles, nrOfGroups) {
 
     const nextGroup = knapsack.resolve(weightPerGroup, weightedArray)
     const keys = nextGroup.map((el) => Object.keys(el)[0])
-    executionPlan.push(keys)
 
     keys.forEach((key) => {
       weightedArray = weightedArray.filter(
         (filter) => Object.keys(filter)[0] != key
       )
     })
+    returnArray.push(nextGroup)
+  }
+  return returnArray
+}
+
+function executionPlan(groups) {
+  let executionPlan = []
+  for (let group of groups) {
+    const keys = group.map((el) => Object.keys(el)[0])
+    executionPlan.push(keys)
   }
   return executionPlan
 }
