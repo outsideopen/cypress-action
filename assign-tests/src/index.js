@@ -3,10 +3,11 @@ const core = require("@actions/core")
 const glob = require("@actions/glob")
 
 const { hashElement } = require("folder-hash")
+import { table } from "table"
 
 const fs = require("fs")
 
-const { executionPlan } = require("./utils")
+const { executionPlan, optimizeWeights } = require("./utils")
 
 const CACHE_KEY = "cypress-weights"
 const WEIGHT_FILE = ".cypress-weights.json"
@@ -39,16 +40,12 @@ async function weights(files) {
         `The following files are not matched by the glob, but have weights assigned: ${difference}`
       )
     }
-
-    let totalWeight = Object.values(fileWeights).reduce((a, c) => a + c, 0)
-    core.info(`Weight assigned to this runner: ${totalWeight}`)
   } else {
     core.info(
       `Weights file not found at ${WEIGHT_FILE}. Using default weights.`
     )
 
     for (const file of files) {
-      core.info(`file: ${file}`)
       fileWeights[file] = 1
     }
   }
@@ -59,6 +56,41 @@ async function weights(files) {
 async function restoreCache(paths, cacheKey, restoreKeys) {
   core.info(`Reading cache from ${cacheKey}`)
   await cache.restoreCache(paths, cacheKey, restoreKeys)
+}
+
+function printOptimizedGroup(optimizedWeights, group, groups) {
+  let planWeight = 0
+  const tableData = optimizedWeights[group - 1].map((el) => {
+    const key = Object.keys(el)[0]
+    planWeight += el[key]
+    return [key, el[key]]
+  })
+  tableData.push(["Plan total", planWeight])
+
+  core.info(`Runner ${group} of ${groups}`)
+  core.info("-------------")
+  core.info(table(tableData))
+}
+
+function printTotals(optimizedWeights, groups){
+  let totalData = []
+  let grandTotal = 0
+  for (let i = 0; i < groups; i++) {
+    const total = optimizedWeights[i]
+      .map((el) => {
+        const key = Object.keys(el)[0]
+        return el[key]
+      })
+      .reduce((a, c) => a + c, 0)
+    grandTotal += total
+    totalData.push([`Group ${i + 1}`, total])
+  }
+  totalData.push(["Total", grandTotal])
+
+  core.info("")
+  core.info("Weight Totals")
+  core.info("-------------")
+  core.info(table(totalData))
 }
 
 async function main() {
@@ -76,11 +108,13 @@ async function main() {
 
   const weightedFiles = await weights(files)
 
-  core.debug(`weighted files: ${JSON.stringify(weightedFiles, null)}`)
+  const optimizedWeights = optimizeWeights(weightedFiles, groups)
+  
+  printOptimizedGroup(optimizedWeights, group, groups)
 
-  const plan = executionPlan(weightedFiles, groups)
-  core.debug(`execution plan: ${JSON.stringify(plan, null)}`)
+  printTotals(optimizedWeights, groups)
 
+  const plan = executionPlan(optimizedWeights)
   return plan && plan.length >= group ? plan[group - 1].join(",") : ""
 }
 
