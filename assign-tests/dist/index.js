@@ -1,59 +1,85 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 5401:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+/***/ 6341:
+/***/ ((module) => {
 
-const core = __nccwpck_require__(2186)
-const knapsack = __nccwpck_require__(5165)
+class OptimizeWeights {
+  constructor(weights = [], nrOfBins = 1) {
+    this.bins = []
 
-module.exports = { executionPlan, optimizeWeights }
+    for (let i = 0; i < nrOfBins; i++) {
+      this.bins.push(new Bin())
+    }
+    this.optimize(weights)
+  }
 
-function remainingWeight(weightedArray) {
-  let weights = weightedArray.map((x) => Object.values(x)[0])
-  let weight = weights.reduce((accumulator, el) => accumulator + el)
-  return weight
+  get totalWeight() {
+    return this.bins.reduce((a, c) => a + c, 0)
+  }
+
+  optimize(weights) {
+    weights.sort((a, b) => b.weight - a.weight)
+
+    for (let weight of weights) {
+      let nextBin = this.nextBin()
+      nextBin.add(weight)
+    }
+  }
+
+  get plan() { }
+
+  nextBin() {
+    let minWeight = null
+    let nextBin = null
+
+    for (let bin of this.bins) {
+      if (minWeight == null || bin.weight < minWeight) {
+        nextBin = bin
+        minWeight = bin.weight
+      }
+    }
+    return nextBin
+  }
+
+  formatWeights(weights) {
+    let formattedWeights = []
+
+    for (let i in weights) {
+      formattedWeights.push({ filePath: i, weight: weights[i] })
+    }
+
+    return formattedWeights
+  }
 }
 
-function optimizeWeights(weightedFiles, nrOfGroups) {
-  if (!weightedFiles || Object.keys(weightedFiles).length == 0) {
-    return []
-  }
-  
-  let returnArray = []
-  let weightedArray = []
-
-  for (const key in weightedFiles) {
-    let weightedObject = {}
-    weightedObject[key] = weightedFiles[key]
-    weightedArray.push(weightedObject)
+class Bin {
+  constructor() {
+    this.content = []
   }
 
-  for (let i = 0; i < nrOfGroups; i++) {
-    const weight = remainingWeight(weightedArray)
-    const weightPerGroup = Math.ceil(weight / (nrOfGroups - i))
-
-    const nextGroup = knapsack.resolve(weightPerGroup, weightedArray)
-    const keys = nextGroup.map((el) => Object.keys(el)[0])
-
-    keys.forEach((key) => {
-      weightedArray = weightedArray.filter(
-        (filter) => Object.keys(filter)[0] != key
-      )
-    })
-    returnArray.push(nextGroup)
+  add(weight) {
+    this.content.push(weight)
   }
-  return returnArray
+
+  get weight() {
+    return this.content.map((el) => el.weight).reduce((a, c) => a + c, 0)
+  }
+
+  get plan() {
+    return this.content.map((el) => el.path)
+  }
+
+  tableData() {
+    const tableData = this.content.map((el) => [el.path, el.weight])
+
+    tableData.push(["Plan total", this.weight])
+
+    return tableData
+  }
 }
 
-function executionPlan(groups) {
-  let executionPlan = []
-  for (let group of groups) {
-    const keys = group.map((el) => Object.keys(el)[0])
-    executionPlan.push(keys)
-  }
-  return executionPlan
-}
+module.exports = { OptimizeWeights }
 
 
 /***/ }),
@@ -48459,80 +48485,6 @@ module.exports["default"] = isFullwidthCodePoint;
 
 /***/ }),
 
-/***/ 5165:
-/***/ ((module) => {
-
-"use strict";
-/*
- * Knapsack
- * For the full copyright and license information, please view the LICENSE.txt file.
- */
-
-/* jslint node: true */
-
-
-// Init the module
-module.exports = function() {
-
-  // Resolves the given problem
-  var resolve = function resolve(capacity, items) {
-
-    var result  = [],
-        leftCap = capacity,
-        itemsFiltered;
-
-    if(typeof capacity !== 'number')
-      return false;
-
-    if(!items || !(items instanceof Array))
-      return false;
-
-    // Resolve
-    var item,
-        itemKey,
-        itemVal,
-        itemObj;
-
-    itemsFiltered = items.filter(function(value) {
-      itemVal = (typeof value === 'object') ? value[Object.keys(value)[0]] : null;
-      if(!isNaN(itemVal) && itemVal > 0 && itemVal <= capacity) {
-        return true;
-      } else {
-        return false;
-      }
-    });
-    itemsFiltered.sort(function(a, b) { return a[Object.keys(a)[0]] < b[Object.keys(b)[0]]; });
-
-    for(item in itemsFiltered) {
-      if(itemsFiltered.hasOwnProperty(item)) {
-        itemKey = Object.keys(itemsFiltered[item])[0];
-        itemVal = itemsFiltered[item][itemKey];
-
-        if((leftCap-itemVal) >= 0) {
-          leftCap = leftCap-itemVal;
-
-          itemObj = Object.create(null);
-          itemObj[itemKey] = itemVal;
-          result.push(itemObj);
-
-          delete itemsFiltered[item];
-
-          if(leftCap <= 0) break;
-        }
-      }
-    }
-
-    return result;
-  };
-
-  // Return
-  return {
-    resolve: resolve
-  };
-}();
-
-/***/ }),
-
 /***/ 4436:
 /***/ ((module, exports, __nccwpck_require__) => {
 
@@ -69094,37 +69046,26 @@ const { hashElement } = __nccwpck_require__(3138)
 
 const fs = __nccwpck_require__(7147)
 
-const { executionPlan, optimizeWeights } = __nccwpck_require__(5401)
+const { OptimizeWeights } = __nccwpck_require__(6341)
 
 const CACHE_KEY = "cypress-weights"
 const WEIGHT_FILE = ".cypress-weights.json"
 
-async function weights(files) {
-  let fileWeights = {}
+async function parseWeights(testFiles) {
+  let weights = []
   if (fs.existsSync(WEIGHT_FILE)) {
     core.info(`Weights file found at ${WEIGHT_FILE}`)
     const weightsFile = fs.readFileSync(WEIGHT_FILE, "utf8")
-    fileWeights = JSON.parse(weightsFile)
+    weights = JSON.parse(weightsFile)
 
-    let fileWeightsKeys = Object.keys(fileWeights)
-    let difference = files.filter((x) => !fileWeightsKeys.includes(x))
+    let weightPaths = weights.map((e) => e.path)
+    let differences = testFiles.filter((x) => !weightPaths.includes(x))
 
-    difference.forEach((el) => {
-      fileWeights[el] = 1
-    })
-    if (difference.length > 0) {
+    if (differences.length > 0) {
       core.warning(
-        `The following files do not have weights assigned: ${difference}`
-      )
-    }
-
-    difference = fileWeightsKeys.filter((x) => !files.includes(x))
-    difference.forEach((el) => {
-      delete fileWeights[el]
-    })
-    if (difference.length > 0) {
-      core.warning(
-        `The following files are not matched by the glob, but have weights assigned: ${difference}`
+        `The following files do not have weights assigned: ${differences.join(
+          ", "
+        )}`
       )
     }
   } else {
@@ -69132,52 +69073,12 @@ async function weights(files) {
       `Weights file not found at ${WEIGHT_FILE}. Using default weights.`
     )
 
-    for (const file of files) {
-      fileWeights[file] = 1
+    for (const testFile of testFiles) {
+      weights.push({ path: testFile, weight: 1 })
     }
   }
 
-  return fileWeights
-}
-
-async function restoreCache(paths, cacheKey, restoreKeys) {
-  core.info(`Reading cache from ${cacheKey}`)
-  await cache.restoreCache(paths, cacheKey, restoreKeys)
-}
-
-function printOptimizedGroup(optimizedWeights, group, groups) {
-  let planWeight = 0
-  const tableData = optimizedWeights[group - 1].map((el) => {
-    const key = Object.keys(el)[0]
-    planWeight += el[key]
-    return [key, el[key]]
-  })
-  tableData.push(["Plan total", planWeight])
-
-  core.info(`Runner ${group} of ${groups}`)
-  core.info("-------------")
-  core.info((0,table__WEBPACK_IMPORTED_MODULE_0__.table)(tableData))
-}
-
-function printTotals(optimizedWeights, groups){
-  let totalData = []
-  let grandTotal = 0
-  for (let i = 0; i < groups; i++) {
-    const total = optimizedWeights[i]
-      .map((el) => {
-        const key = Object.keys(el)[0]
-        return el[key]
-      })
-      .reduce((a, c) => a + c, 0)
-    grandTotal += total
-    totalData.push([`Group ${i + 1}`, total])
-  }
-  totalData.push(["Total", grandTotal])
-
-  core.info("")
-  core.info("Weight Totals")
-  core.info("-------------")
-  core.info((0,table__WEBPACK_IMPORTED_MODULE_0__.table)(totalData))
+  return weights
 }
 
 async function main() {
@@ -69188,21 +69089,32 @@ async function main() {
   const hash = (await hashElement(testsPath)).hash
 
   const globber = await glob.create(`${testsPath}/${pattern}`)
-  const files = [...(await globber.glob())]
-  core.debug(`files: ${files}`)
+  const testFiles = [...(await globber.glob())]
 
-  await restoreCache([WEIGHT_FILE], `${CACHE_KEY}-${hash}`, [`${CACHE_KEY}-`])
+  core.info(`Reading cache from ${CACHE_KEY}`)
+  await cache.restoreCache([WEIGHT_FILE], `${CACHE_KEY}-${hash}`, [
+    `${CACHE_KEY}-`,
+  ])
 
-  const weightedFiles = await weights(files)
+  const weights = await parseWeights(testFiles)
 
-  const optimizedWeights = optimizeWeights(weightedFiles, groups)
-  
-  printOptimizedGroup(optimizedWeights, group, groups)
+  const optimizedWeights = new OptimizeWeights(weights, groups)
 
-  printTotals(optimizedWeights, groups)
+  core.info(`Runner ${group} of ${groups}`)
+  core.info("-------------")
+  core.info((0,table__WEBPACK_IMPORTED_MODULE_0__.table)(optimizedWeights.bins[group - 1].tableData()))
 
-  const plan = executionPlan(optimizedWeights)
-  return plan && plan.length >= group ? plan[group - 1].join(",") : ""
+  core.info("")
+  core.info("Weight Totals")
+  core.info("-------------")
+  let totalData = []
+  let i = 1
+  for (let bin of optimizedWeights.bins) {
+    totalData.push([`Group ${i++}`, bin.weight])
+  }
+  core.info((0,table__WEBPACK_IMPORTED_MODULE_0__.table)(totalData))
+
+  return optimizedWeights.bins[group - 1].plan.join(",")
 }
 
 main()
