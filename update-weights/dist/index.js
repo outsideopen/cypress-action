@@ -62137,13 +62137,13 @@ async function getWeights(file) {
 
   let resultObject = {}
   for (const result of json?.results) {
-    let duration = 0
+    let duration = 1
 
     for (const suite of result?.suites) {
       duration += suite?.duration
     }
-     
-    resultObject[path.resolve(result?.file)] = duration
+
+    resultObject = { path: path.resolve(result?.file), weight: duration }
   }
 
   return resultObject
@@ -62161,14 +62161,16 @@ async function main() {
   const resultsPath = core.getInput("results-path")
   const files = await getFiles(resultsPath)
 
-  let weights = {}
+  let weights = []
   for (const file of files) {
     let fileWeight = await getWeights(file)
 
-    weights = { ...weights, ...fileWeight }
+    weights.push(fileWeight)
   }
 
   await fs.writeFile(WEIGHT_FILE, JSON.stringify(weights, null))
+  
+  core.info(`Weights Files ${JSON.stringify(weights, null, 4)}`)
 
   await saveCache([WEIGHT_FILE], `${CACHE_KEY}-${hash}`)
 

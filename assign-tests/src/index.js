@@ -7,37 +7,26 @@ import { table } from "table"
 
 const fs = require("fs")
 
-const { executionPlan, optimizeWeights } = require("./utils")
+const { OptimizeWeights } = require("./optimizeWeights")
 
 const CACHE_KEY = "cypress-weights"
 const WEIGHT_FILE = ".cypress-weights.json"
 
-async function weights(files) {
-  let fileWeights = {}
+async function parseWeights(testFiles) {
+  let weights = []
   if (fs.existsSync(WEIGHT_FILE)) {
     core.info(`Weights file found at ${WEIGHT_FILE}`)
     const weightsFile = fs.readFileSync(WEIGHT_FILE, "utf8")
-    fileWeights = JSON.parse(weightsFile)
+    weights = JSON.parse(weightsFile)
 
-    let fileWeightsKeys = Object.keys(fileWeights)
-    let difference = files.filter((x) => !fileWeightsKeys.includes(x))
+    let weightPaths = weights.map((e) => e.path)
+    let differences = testFiles.filter((x) => !weightPaths.includes(x))
 
-    difference.forEach((el) => {
-      fileWeights[el] = 1
-    })
-    if (difference.length > 0) {
+    if (differences.length > 0) {
       core.warning(
-        `The following files do not have weights assigned: ${difference}`
-      )
-    }
-
-    difference = fileWeightsKeys.filter((x) => !files.includes(x))
-    difference.forEach((el) => {
-      delete fileWeights[el]
-    })
-    if (difference.length > 0) {
-      core.warning(
-        `The following files are not matched by the glob, but have weights assigned: ${difference}`
+        `The following files do not have weights assigned: ${differences.join(
+          ", "
+        )}`
       )
     }
   } else {
@@ -45,52 +34,12 @@ async function weights(files) {
       `Weights file not found at ${WEIGHT_FILE}. Using default weights.`
     )
 
-    for (const file of files) {
-      fileWeights[file] = 1
+    for (const testFile of testFiles) {
+      weights.push({ path: testFile, weight: 1 })
     }
   }
 
-  return fileWeights
-}
-
-async function restoreCache(paths, cacheKey, restoreKeys) {
-  core.info(`Reading cache from ${cacheKey}`)
-  await cache.restoreCache(paths, cacheKey, restoreKeys)
-}
-
-function printOptimizedGroup(optimizedWeights, group, groups) {
-  let planWeight = 0
-  const tableData = optimizedWeights[group - 1].map((el) => {
-    const key = Object.keys(el)[0]
-    planWeight += el[key]
-    return [key, el[key]]
-  })
-  tableData.push(["Plan total", planWeight])
-
-  core.info(`Runner ${group} of ${groups}`)
-  core.info("-------------")
-  core.info(table(tableData))
-}
-
-function printTotals(optimizedWeights, groups){
-  let totalData = []
-  let grandTotal = 0
-  for (let i = 0; i < groups; i++) {
-    const total = optimizedWeights[i]
-      .map((el) => {
-        const key = Object.keys(el)[0]
-        return el[key]
-      })
-      .reduce((a, c) => a + c, 0)
-    grandTotal += total
-    totalData.push([`Group ${i + 1}`, total])
-  }
-  totalData.push(["Total", grandTotal])
-
-  core.info("")
-  core.info("Weight Totals")
-  core.info("-------------")
-  core.info(table(totalData))
+  return weights
 }
 
 async function main() {
@@ -101,21 +50,32 @@ async function main() {
   const hash = (await hashElement(testsPath)).hash
 
   const globber = await glob.create(`${testsPath}/${pattern}`)
-  const files = [...(await globber.glob())]
-  core.debug(`files: ${files}`)
+  const testFiles = [...(await globber.glob())]
 
-  await restoreCache([WEIGHT_FILE], `${CACHE_KEY}-${hash}`, [`${CACHE_KEY}-`])
+  core.info(`Reading cache from ${CACHE_KEY}`)
+  await cache.restoreCache([WEIGHT_FILE], `${CACHE_KEY}-${hash}`, [
+    `${CACHE_KEY}-`,
+  ])
 
-  const weightedFiles = await weights(files)
+  const weights = await parseWeights(testFiles)
 
-  const optimizedWeights = optimizeWeights(weightedFiles, groups)
-  
-  printOptimizedGroup(optimizedWeights, group, groups)
+  const optimizedWeights = new OptimizeWeights(weights, groups)
 
-  printTotals(optimizedWeights, groups)
+  core.info(`Runner ${group} of ${groups}`)
+  core.info("-------------")
+  core.info(table(optimizedWeights.bins[group - 1].tableData()))
 
-  const plan = executionPlan(optimizedWeights)
-  return plan && plan.length >= group ? plan[group - 1].join(",") : ""
+  core.info("")
+  core.info("Weight Totals")
+  core.info("-------------")
+  let totalData = []
+  let i = 1
+  for (let bin of optimizedWeights.bins) {
+    totalData.push([`Group ${i++}`, bin.weight])
+  }
+  core.info(table(totalData))
+
+  return optimizedWeights.bins[group - 1].plan.join(",")
 }
 
 main()
