@@ -69053,10 +69053,15 @@ const WEIGHT_FILE = ".cypress-weights.json"
 
 async function parseWeights(testFiles) {
   let weights = []
+  core.info(`Reading weights from ${WEIGHT_FILE} (**GES**)`)
   if (fs.existsSync(WEIGHT_FILE)) {
     core.info(`Weights file found at ${WEIGHT_FILE}`)
     const weightsFile = fs.readFileSync(WEIGHT_FILE, "utf8")
     weights = JSON.parse(weightsFile)
+
+    core.info("vvvvvvvvvvvvvvv")
+    core.info(`Weights: ${JSON.stringify(weights, null, 4)}`)
+    core.info("^^^^^^^^^^^^^^^")
 
     let weightPaths = weights.map((e) => e.path)
     let differences = testFiles.filter((x) => !weightPaths.includes(x))
