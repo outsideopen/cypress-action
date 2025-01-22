@@ -14,6 +14,7 @@ async function getFiles(path) {
 }
 
 async function getWeights(file) {
+  core.info("Reading weights from file")
   const results = await fs.readFile(file, "utf8")
   const json = JSON.parse(results)
 
@@ -50,9 +51,9 @@ async function main() {
     weights.push(fileWeight)
   }
 
+  core.info(`Weights ALL: ${JSON.stringify(weights, null, 4)}`)
+
   await fs.writeFile(WEIGHT_FILE, JSON.stringify(weights, null))
-  
-  core.info(`Weights Files ${JSON.stringify(weights, null, 4)}`)
 
   await saveCache([WEIGHT_FILE], `${CACHE_KEY}-${hash}`)
 
