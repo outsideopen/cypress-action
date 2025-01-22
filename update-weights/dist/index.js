@@ -62136,9 +62136,6 @@ async function getWeights(file) {
   const results = await fs.readFile(file, "utf8")
   const json = JSON.parse(results)
 
-  core.info(`Weigths: ${JSON.stringify(json, null, 4)}`)
-  core.info("^^^^^^^^^^^^^^^")
-
   let resultObject = {}
   for (const result of json?.results) {
     let duration = 1
@@ -62159,7 +62156,6 @@ async function saveCache(paths, cacheKey) {
 }
 
 async function main() {
-  core.info(" MAIN **GES**")
   const testsPath = core.getInput("tests-path")
   const hash = (await hashElement(testsPath)).hash
 
@@ -62176,8 +62172,6 @@ async function main() {
   core.info(`Weights ALL: ${JSON.stringify(weights, null, 4)}`)
 
   await fs.writeFile(WEIGHT_FILE, JSON.stringify(weights, null))
-
-  core.info(`Weights Files ${JSON.stringify(weights, null, 4)}`)
 
   await saveCache([WEIGHT_FILE], `${CACHE_KEY}-${hash}`)
 
